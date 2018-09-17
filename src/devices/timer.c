@@ -20,6 +20,10 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
+/*List for thread in sleeping
+  added for timer_sleep */
+static struct list sleep_list;
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -44,6 +48,8 @@ timer_init (void)
   outb (0x40, count >> 8);
 
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+  list_init (&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -102,12 +108,19 @@ timer_sleep (int64_t ticks)
   ASSERT (!intr_context());
 
   old_level = intr_disable();
-  int64_t start = timer_ticks ();
 
+  int64_t start = timer_ticks ();
+  if (curr != idle_thread){
+    curr->wake_ticks = start + ticks;
+    list_insert_ordered(&sleep_list, &curr->elem, wake_ticks_compare, NULL);
+    thread_block();
+  }
+
+  /*
   ASSERT (intr_get_level () == INTR_ON);
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
-
+  */
   intr_set_level(old_level);
 }
 
@@ -210,3 +223,17 @@ real_time_sleep (int64_t num, int32_t denom)
     }
 }
 
+static bool
+wake_ticks_compare(const struct list_elem *a, const struct list_elem *b,
+                    void *aux UNUSED)
+{
+  struct thread *thread_a = list_entry(a, struct thread, elem);
+  struct thread *thread_b = list_entry(b, struct thread, elem);
+  int64_t a_wake_ticks = thread_a -> wake_ticks;
+  int64_t b_wake_ticks = thread_b -> wake_ticks;
+
+  if(a_wake_ticks < b_wake_ticks) return true;
+  else return false;
+
+  //return (a_wake_ticks < b_wake_ticks ? true : false);
+}

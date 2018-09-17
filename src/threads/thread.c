@@ -28,10 +28,6 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-/*List for thread in sleeping
-  added for timer_sleep */
-static struct list sleep_list;
-
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -95,7 +91,6 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
-  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
