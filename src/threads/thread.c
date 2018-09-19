@@ -70,6 +70,11 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static bool thread_priority_compare(const struct list_elem *a, 
+                                const struct list_elem *b,
+                                void *aux UNUSED);
+
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -179,7 +184,7 @@ thread_create (const char *name, int priority,
     return TID_ERROR;
 
   /* Initialize thread. */
-  init_thread (t, name, priority);
+  init_thread (t, name, priority, aux);
   tid = t->tid = allocate_tid ();
 
   /* Stack frame for kernel_thread(). */
@@ -235,7 +240,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, thread_prioirty_compare, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -304,7 +309,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (curr != idle_thread) 
-    list_push_back (&ready_list, &curr->elem);
+    list_insert_ordered (&ready_list, &curr->elem, thread_priority_compare,NULL);
   curr->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -354,6 +359,26 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
+
+static bool
+thread_priority_compare(const struct list_elem *a, const struct list_elem *b,
+                    void *aux UNUSED)
+{
+  struct thread *thread_a = list_entry(a, struct thread, elem);
+  struct thread *thread_b = list_entry(b, struct thread, elem);
+  int a_priority = thread_a -> priority;
+  int b_priority = thread_b -> priority;
+
+
+  if(a_prioirty >= b_prioirty) return true;
+  else return false;
+
+  //return (a_wake_ticks < b_wake_ticks ? true : false);
+}
+
+
+
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -428,7 +453,7 @@ is_thread (struct thread *t)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
-init_thread (struct thread *t, const char *name, int priority)
+init_thread (struct thread *t, const char *name, int priority, void *lock)
 {
   ASSERT (t != NULL);
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
@@ -439,6 +464,8 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->priority_before = -1;
+  t->lock = lock;
   t->magic = THREAD_MAGIC;
 }
 
@@ -463,6 +490,7 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
+  
   if (list_empty (&ready_list))
     return idle_thread;
   else
@@ -532,6 +560,19 @@ schedule (void)
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (curr->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
+
+  if (next->lock != NULL)
+  {
+    if ((next->lock)->holder != next)
+    {
+       struct thread *dominate = (next->lock) -> holder;
+       list_remove()
+       dominate -> priority_before = dominate -> priority;
+       dominate -> priority = next -> priority;
+       list_push_back(&ready_list)
+
+    }
+  }
 
   if (curr != next)
     prev = switch_threads (curr, next);
