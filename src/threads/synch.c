@@ -235,6 +235,13 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+  struct thread *curr = thread_current();
+  if(curr->priority_before != -1)
+  {
+    curr->priority = priority_before;
+    curr->priority = -1;
+    thread_yield();
+  }
 }
 
 /* Returns true if the current thread holds LOCK, false

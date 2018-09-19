@@ -320,6 +320,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield()
 }
 
 /* Returns the current thread's priority. */
@@ -561,16 +562,21 @@ schedule (void)
   ASSERT (curr->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
-  if (next->lock != NULL)
+  while (next->lock != NULL)
   {
-    if ((next->lock)->holder != next)
+    if (next->lock->holder != next)
     {
-       struct thread *dominate = (next->lock) -> holder;
-       list_remove()
+       struct thread *dominate = next->lock-> holder;
        dominate -> priority_before = dominate -> priority;
        dominate -> priority = next -> priority;
-       list_push_back(&ready_list)
-
+       list_remove(&domincate->elem);
+       list_insert_ordered (&ready_list, &next->elem, thread_priority_compare,NULL);
+       next = dominate;
+       ASSERT(is_tread (next));
+    }
+    else
+    {
+      break;
     }
   }
 
