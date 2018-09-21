@@ -64,7 +64,7 @@ static void kernel_thread (thread_func *, void *aux);
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
-static void init_thread (struct thread *, const char *name, int priority);
+static void init_thread (struct thread *, const char *name, int priority, void *lock);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
@@ -240,7 +240,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered (&ready_list, &t->elem, thread_prioirty_compare, NULL);
+  list_insert_ordered (&ready_list, &t->elem, thread_priority_compare, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -320,7 +320,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  thread_yield()
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -371,7 +371,7 @@ thread_priority_compare(const struct list_elem *a, const struct list_elem *b,
   int b_priority = thread_b -> priority;
 
 
-  if(a_prioirty >= b_prioirty) return true;
+  if(a_priority >= b_priority) return true;
   else return false;
 
   //return (a_wake_ticks < b_wake_ticks ? true : false);
@@ -564,15 +564,15 @@ schedule (void)
 
   while (next->lock != NULL)
   {
-    if (next->lock->holder != next)
+    if (&(next->lock)->holder != next)
     {
-       struct thread *dominate = next->lock-> holder;
+       struct thread *dominate = &(next->lock)-> holder;
        dominate -> priority_before = dominate -> priority;
        dominate -> priority = next -> priority;
-       list_remove(&domincate->elem);
-       list_insert_ordered (&ready_list, &next->elem, thread_priority_compare,NULL);
+       list_remove(&dominate->elem);
+       list_insert_ordered (&ready_list, &next->elem, thread_priority_compare, NULL);
        next = dominate;
-       ASSERT(is_tread (next));
+       ASSERT(is_thread (next));
     }
     else
     {
