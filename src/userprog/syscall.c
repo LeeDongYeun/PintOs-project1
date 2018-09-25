@@ -5,6 +5,7 @@
 #include "threads/thread.h"
 
 static void syscall_handler (struct intr_frame *);
+void check_pointer(void *ptr);
 
 void
 syscall_init (void) 
@@ -67,4 +68,28 @@ syscall_handler (struct intr_frame *f)
 	}
 	printf ("system call!\n");
 	thread_exit ();
+}
+
+void*
+check_pointer(void *ptr){
+	void *result = 0;
+	if(ptr >= PHYS_BASE){
+		exit(-1);
+	}
+
+	else if(*ptr == NULL){
+		exit(-1);
+	}
+	else{
+
+		void *pointer = pagedir_get_page(thread_current()->pagedir, vaddr);
+		if(!pointer){
+			exit(-1);
+		}
+		else{
+			result = ptr;
+		}
+	}
+
+	return result;
 }
