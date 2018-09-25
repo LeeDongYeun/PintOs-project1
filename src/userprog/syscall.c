@@ -16,7 +16,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-	int *esp_val = f->esp;
+	int *esp_val = check_pointer(f->esp);
 
 	switch(*esp_val){
 	  	case SYS_HALT:
