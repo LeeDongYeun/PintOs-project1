@@ -15,16 +15,19 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-	printf(*(int *)f->esp);
+	int *esp_val = f->esp;
 
-	switch(*(int *)f->esp){
+	switch(*esp_val){
 	  	case SYS_HALT:
+	  		halt();
 	  		break;
 
 	  	case SYS_EXIT:
+	  		exit(*(esp_val+4));
 	  		break;
 
 	  	case SYS_EXEC:
+	  		exec(*(esp_val+4));
 	  		break;
 
 	  	case SYS_WAIT:
