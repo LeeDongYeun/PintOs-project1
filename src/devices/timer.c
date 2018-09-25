@@ -36,7 +36,7 @@ static void real_time_sleep (int64_t num, int32_t denom);
 static bool wake_ticks_compare(const struct list_elem *a, 
                                 const struct list_elem *b,
                                 void *aux UNUSED);
-//void timer_wakeup(void);
+void timer_wakeup(void);
 
 /* Sets up the 8254 Programmable Interval Timer (PIT) to
    interrupt PIT_FREQ times per second, and registers the
