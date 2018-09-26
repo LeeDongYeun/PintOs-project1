@@ -3,9 +3,16 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "threads/init.h"
+#include "userprog/pagedir.h"
 
 static void syscall_handler (struct intr_frame *);
-void check_pointer(void *ptr);
+void *check_pointer(void *ptr);
+void halt(void);
+void exit(int status);
+pid_t exec(const char *cmd_line);
+
 
 void
 syscall_init (void) 
@@ -24,11 +31,11 @@ syscall_handler (struct intr_frame *f)
 	  		break;
 
 	  	case SYS_EXIT:
-	  		exit(*(esp_val+4));
+	  		exit(*(int *)check_pointer(esp_val+4));
 	  		break;
 
 	  	case SYS_EXEC:
-	  		exec(*(esp_val+4));
+	  		f -> eax = (uint32_t) exec(*(char *)check_pointer(esp_val+4));
 	  		break;
 
 	  	case SYS_WAIT:
@@ -77,12 +84,9 @@ check_pointer(void *ptr){
 		exit(-1);
 	}
 
-	else if(*ptr == NULL){
-		exit(-1);
-	}
 	else{
 
-		void *pointer = pagedir_get_page(thread_current()->pagedir, vaddr);
+		void *pointer = pagedir_get_page(thread_current()->pagedir, ptr);
 		if(!pointer){
 			exit(-1);
 		}
@@ -92,4 +96,22 @@ check_pointer(void *ptr){
 	}
 
 	return result;
+}
+
+void
+halt(void){
+	power_off();
+}
+
+void
+exit(int status){
+	struct thread *t = thread_current ();
+
+	printf("%s: exit(%d)\n", t->name, status);
+	thread_exit();
+}
+
+pid_t
+exec(const char *cmd_line){
+	return process_execute(cmd_line);
 }
