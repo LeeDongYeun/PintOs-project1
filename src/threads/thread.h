@@ -92,10 +92,12 @@ struct thread
     struct list_elem elem;              /* List element. */
     int64_t wake_ticks;
 
-
     int donation;                       /* number of the donation on thread*/
     struct lock *lock_held;             /* Lock held on the thread */
     struct list key;              /* List of lock */
+
+    int fd;                             /*file discriptor */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
