@@ -93,10 +93,11 @@ struct thread
     int64_t wake_ticks;
 
     int donation;                       /* number of the donation on thread*/
-    struct lock *lock_held;             /* Lock held on the thread */
+    struct lock *lock_held;             /* Lock held on the thread */ 
     struct list key;              /* List of lock */
 
     int fd;                             /*file discriptor */
+    struct list file_list;              /*list of open file*/
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

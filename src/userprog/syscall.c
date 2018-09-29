@@ -7,6 +7,10 @@
 #include "threads/init.h"
 #include "userprog/pagedir.h"
 #include "threads/sysch.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "lib/kernel/list.h"
+#include "devices/input.h"
 
 static void syscall_handler (struct intr_frame *);
 void *check_pointer(void *ptr);
@@ -24,12 +28,27 @@ void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
 
+struct file *get_file(int fd);
+
 struct lock lock_filesys;
+struct file_descriptor{
+	struct file *file;
+	int fd;
+	struct list_elem elem;
+
+}
+
+/*
+file descriptor로 syscall_init에서 초기화하고
+open함수에서 file을 오픈할 때마다 1씩 증가한다  
+*/
+int fd;
 
 void
 syscall_init (void) 
 {
 	lock_init(&lock_filesys);
+	fd = 2;
 	intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -121,6 +140,31 @@ check_pointer(void *ptr){
 	return result;
 }
 
+/*
+현재 thread에 있는 file_list에서 fd가 같은 값을 찾은 후 file에 대한
+포인터를 리턴한다. 만약 없다면 -1을 리턴한다.
+*/
+struct file*
+get_file(int fd){
+	int result = -1;
+
+	struct thread *curr = thread_current();
+	struct list_elem *e;
+	struct file_descriptor *file_descriptor;
+
+	ASSERT (curr->file_list != NULL);
+
+	for(e = list_begin(&curr->file_list); e != list_end(&curr->file_list); e = list_next(e)){
+		file_descriptor = list_entry(e, sturct file_descriptor, elem);
+		if(fd == file_descriptor->fd){
+			result = pf->file;
+			break;
+		}
+	}
+
+	return result;
+}
+
 void
 halt(void){
 	power_off();
@@ -164,6 +208,173 @@ remove(const char *file){
 	lock_release(&lock_filesys);
 
 	return result;
+}
+
+/*
+파일을 연 후 각 파일마다 fd를 배정하여 파일을 연 thread의 file_list에
+file_descriptor라는 구조체를 저장한다. 그 후 fd를 증가시켜 준다.
+*/
+int
+open(const char *file){
+	bool result;
+
+	lock_acquire(&lock_filesys);
+	struct file *f = filesys_open(file);
+	if(!file){
+		result = -1;
+	}
+	else{
+		struct thread *curr = thread_current();
+		struct file_descriptor *file_descriptor;
+		
+		file_descriptor -> file = f;
+		file_descriptor -> fd = fd;
+		list_push_back(&(curr->file_list), &(file_descriptor->elem));
+		result = fd;
+		fd++;
+	}
+	lock_release(&lock_filesys);
+
+	return result;
+}
+
+/*
+파일이 존재한다면 길이를 리턴하고
+존재하지 않는다면 -1을 리턴한다.
+*/
+int
+filesize(int fd){
+	int result;
+
+	lock_acquire(&lock_filesys);
+	struct file * file = get_file(fd);
+
+	if(file == -1){
+		result = -1;
+	}
+	else{
+		result = file_length(file);
+	}
+	lock_release(&lock_filesys);
+
+	return result;
+}
+
+
+/*
+fd 의 값이 0 이면 키보드로부터 버퍼에 값을 읽어오고,
+아니면 fd에 맞는 file로부터 size만큼 값을 읽어온다.
+*/
+int
+read(int fd, void *buffer, unsigned size){
+	int result;
+
+	if(fd == 0){
+		int i = 0;
+
+		for(;i<size;i++)
+			*((uint8_t *)buffer++) = input_getc();
+
+		result = size;
+
+	}
+	else{
+		lock_acquire(&lock_filesys);
+		struct file *file = get_file(fd);
+
+		if(file == -1){
+			result = -1;
+		}
+		else{
+			result = file_read(file, buffer, size);
+		}
+		lock_release(&lock_filesys);
+	}
+
+	return result;
+}
+
+
+int
+write(int fd, const void *buffer, unsigned size){
+	int result;
+
+	if(fd == 1){
+		putbuf(buffer, size);
+		result = size;
+	}
+	else{
+		lock_acquire(&lock_filesys);
+		struct file *file = get_file(fd);
+
+		if(file == -1){
+			result = 0;
+		}
+		else{
+			result = file_write(file, buffer, size);
+		}
+		lock_release(&lock_filesys);
+	}
+
+	return result;
+}
+
+void
+seek(int fd, unsigned position){
+
+	lock_acquire(&lock_filesys);
+	struct file * file = get_file(fd);
+
+	if(file != -1){
+		file_seek(file, position);
+	}
+
+	lock_release(&lock_filesys);
+}
+
+unsigned
+tell(int fd){
+	off_t result;
+
+	lock_acquire(&lock_filesys);
+	struct file * file = get_file(fd);
+
+	if(file == -1){
+		result = -1;
+	}
+	else{
+		result = file_tell(file);
+	}
+	lock_release(&lock_filesys);
+
+	return result;
+}
+
+/*
+현재 thread의 file_list에서 fd값이 일치하는 file을 찾은 후 
+thread의 file_list에서 제거해주고, file 또한 닫는다.
+*/
+void
+close(int fd){
+	
+	struct thread *curr = thread_current();
+	struct list_elem *e;
+	struct file_descriptor *file_descriptor;
+
+	ASSERT (curr->file_list != NULL);
+
+	for(e = list_begin(&curr->file_list); e != list_end(&curr->file_list); e = list_next(e)){
+		file_descriptor = list_entry(e, sturct file_descriptor, elem);
+		
+		if(fd == file_descriptor->fd){
+			list_remove(&file_descriptor->elem);
+
+			lock_acquire(&lock_filesys);
+			file_close(file_descriptor->file);
+			lock_release(&lock_filesys);
+			break;
+		}
+	}
 }
 
 
