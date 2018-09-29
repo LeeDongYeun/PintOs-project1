@@ -6,14 +6,17 @@
 #include "threads/vaddr.h"
 #include "threads/init.h"
 #include "userprog/pagedir.h"
-#include "threads/sysch.h"
+#include "threads/synch.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "lib/kernel/list.h"
 #include "devices/input.h"
 
+typedef int pid_t;
+
 static void syscall_handler (struct intr_frame *);
 void *check_pointer(void *ptr);
+
 void halt(void);
 void exit(int status);
 pid_t exec(const char *cmd_line);
@@ -36,19 +39,18 @@ struct file_descriptor{
 	int fd;
 	struct list_elem elem;
 
-}
+};
 
 /*
 file descriptor로 syscall_init에서 초기화하고
 open함수에서 file을 오픈할 때마다 1씩 증가한다  
 */
-int fd;
+
 
 void
 syscall_init (void) 
 {
 	lock_init(&lock_filesys);
-	fd = 2;
 	intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -146,23 +148,21 @@ check_pointer(void *ptr){
 */
 struct file*
 get_file(int fd){
-	int result = -1;
 
 	struct thread *curr = thread_current();
 	struct list_elem *e;
 	struct file_descriptor *file_descriptor;
 
-	ASSERT (curr->file_list != NULL);
+	ASSERT (&curr->file_list != NULL);
 
 	for(e = list_begin(&curr->file_list); e != list_end(&curr->file_list); e = list_next(e)){
-		file_descriptor = list_entry(e, sturct file_descriptor, elem);
+		file_descriptor = list_entry(e, struct file_descriptor, elem);
 		if(fd == file_descriptor->fd){
-			result = pf->file;
-			break;
+			return file_descriptor->file;
 		}
 	}
 
-	return result;
+	return NULL;
 }
 
 void
@@ -183,10 +183,11 @@ exec(const char *cmd_line){
 	return process_execute(cmd_line);
 }
 
+/*
 int
 wait(pid_t pid){
 
-}
+}*/
 
 bool
 create(const char *file, unsigned initial_size){
@@ -227,11 +228,11 @@ open(const char *file){
 		struct thread *curr = thread_current();
 		struct file_descriptor *file_descriptor;
 		
-		file_descriptor -> file = f;
-		file_descriptor -> fd = fd;
+		file_descriptor->file = f;
+		file_descriptor->fd = curr->fd;
 		list_push_back(&(curr->file_list), &(file_descriptor->elem));
-		result = fd;
-		fd++;
+		result = curr->fd;
+		curr->fd++;
 	}
 	lock_release(&lock_filesys);
 
@@ -249,7 +250,7 @@ filesize(int fd){
 	lock_acquire(&lock_filesys);
 	struct file * file = get_file(fd);
 
-	if(file == -1){
+	if(!file){
 		result = -1;
 	}
 	else{
@@ -270,7 +271,7 @@ read(int fd, void *buffer, unsigned size){
 	int result;
 
 	if(fd == 0){
-		int i = 0;
+		unsigned i = 0;
 
 		for(;i<size;i++)
 			*((uint8_t *)buffer++) = input_getc();
@@ -282,7 +283,7 @@ read(int fd, void *buffer, unsigned size){
 		lock_acquire(&lock_filesys);
 		struct file *file = get_file(fd);
 
-		if(file == -1){
+		if(!file){
 			result = -1;
 		}
 		else{
@@ -307,7 +308,7 @@ write(int fd, const void *buffer, unsigned size){
 		lock_acquire(&lock_filesys);
 		struct file *file = get_file(fd);
 
-		if(file == -1){
+		if(!file){
 			result = 0;
 		}
 		else{
@@ -325,7 +326,7 @@ seek(int fd, unsigned position){
 	lock_acquire(&lock_filesys);
 	struct file * file = get_file(fd);
 
-	if(file != -1){
+	if(!file){
 		file_seek(file, position);
 	}
 
@@ -339,7 +340,7 @@ tell(int fd){
 	lock_acquire(&lock_filesys);
 	struct file * file = get_file(fd);
 
-	if(file == -1){
+	if(!file){
 		result = -1;
 	}
 	else{
@@ -361,10 +362,10 @@ close(int fd){
 	struct list_elem *e;
 	struct file_descriptor *file_descriptor;
 
-	ASSERT (curr->file_list != NULL);
+	ASSERT (&curr->file_list != NULL);
 
 	for(e = list_begin(&curr->file_list); e != list_end(&curr->file_list); e = list_next(e)){
-		file_descriptor = list_entry(e, sturct file_descriptor, elem);
+		file_descriptor = list_entry(e, struct file_descriptor, elem);
 		
 		if(fd == file_descriptor->fd){
 			list_remove(&file_descriptor->elem);

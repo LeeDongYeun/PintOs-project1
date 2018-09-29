@@ -37,6 +37,8 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+static struct list file_list;
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
   {
@@ -472,6 +474,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->key);
   t->lock_held = NULL;
   t->magic = THREAD_MAGIC;
+
+  list_init(&t->file_list);
+  t->fd = 2; 
+
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
