@@ -45,8 +45,6 @@ struct file_descriptor{
 file descriptor로 syscall_init에서 초기화하고
 open함수에서 file을 오픈할 때마다 1씩 증가한다  
 */
-
-
 void
 syscall_init (void) 
 {
