@@ -22,6 +22,8 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+void argument_stack(char **parse,void **esp)
+int argument_count(char **parse)
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -53,7 +55,9 @@ process_execute (const char *file_name)
 static void
 start_process (void *f_name)
 {
-  char *file_name = f_name;
+  char *buf_1 = f_name;
+  char *buf_2;
+  char *file_name = strtok_s(buf_1," ",&buf_2);
   struct intr_frame if_;
   bool success;
 
@@ -62,6 +66,8 @@ start_process (void *f_name)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
+  argv_put_stack(f_name, argument_count(f_name),&if_.esp);
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
@@ -468,4 +474,74 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+
+int
+argument_count(char **parse)
+{
+  char *argv = *parse;
+  char *address;
+  char *token = strtok_s(argv," ",&address);
+  int i = 0;
+  while(token)
+  {
+    i++;
+    token = strtok_s(NULL," ",&address);
+  }
+  return i;
+}
+
+
+void 
+argv_put_stack(char **parse,int count, void **esp)
+{
+  char *argv = *parse;
+  char *address;
+  char **buff = (char**)malloc((count+1)*sizeof(char*));
+  char *token = strtok_s(argv," ",&address);
+  char *argv_ptr;
+  int arg_len;
+  int align;
+  int i;
+
+  /*argv를 쪼개서 stack에 집어 넣는다. 집어 넣을 때 
+  stack의 주소값을 buff에 저장한다.*/
+  i = 0;
+  while(token)
+  {
+    arg_len = strlen(token) + 1;
+    *esp = *esp - arg_len;
+    buff[i] = *esp;
+    memcpy(*esp, token, arg_len);
+    i++;
+  }
+  /*마지막 buff에 0을 집어 넣는다*/
+  buff[count] = 0; 
+
+
+  /*8바이트로 맞추어준다*/
+  align = ((int)*esp) & 3;
+  *esp = *esp - align;
+
+  /*스택에 argv들의 주소값을 집어 넣는다*/
+  for(i=count;i>=0;i--)
+  {
+    *esp = *esp - 4;
+    memcpy(*esp,&argv[i],4);
+  }
+
+  /*스택에 argv의 주소값을 가지고 있는 주소값을 넣는다*/
+  argv_ptr = *esp;
+  *esp = *esp - 4;
+  memcpy(*esp,&argv_ptr,4);
+
+  /*스택에 argv의 개수를 넣는다*/
+  *esp = *esp - 4;
+  memcpy(*esp,&count,4);
+
+  /*return address를 넣는다*/
+  *esp = *esp - 4;
+  memset(*esp,0,4);
+
 }
