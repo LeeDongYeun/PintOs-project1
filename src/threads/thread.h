@@ -95,7 +95,7 @@ struct thread
 
     int donation;                       /* number of the donation on thread*/
     struct lock *lock_held;             /* Lock held on the thread */ 
-    struct list key;                    /* List of lock */
+    struct list key;                    /* List of lock which the thread is holding */
 
     /*[project2]*/
     int fd;                             /*file discriptor [project2-syscall] */

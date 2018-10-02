@@ -114,7 +114,7 @@ sema_up (struct semaphore *sema)
     list_sort(&sema->waiters,thread_priority_compare2 , NULL);
     struct thread *a_thread = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
     thread_unblock(a_thread);
-    sema->value++;
+    sema->value++;.
     intr_set_level (old_level);
     thread_yield();
   }
@@ -263,19 +263,26 @@ lock_release (struct lock *lock)
   /* When the thread have donated priority, 
   back to base priority or get other priority of lock held on thread
   */
-  if(same_lock_next_thread->priority == curr->priority)
+  if(same_lock_next_thread->priority == curr->priority) //priority가 상속이 된 경우
   {
+    /*
+    현재 thread가 여러 thread에 상속을 하였고, lock을 걸어놓은 것들의 리스트가 비어있지 않는 경우
+    */
     if(curr->donation > 1 && !list_empty(&curr->key))
     {
       struct semaphore high_sema = list_entry(list_front(&curr->key), struct lock, elem)->semaphore;
       struct thread *high_priority_lock_thread = list_entry(list_front(&high_sema.waiters),struct thread,elem); 
       curr->priority = high_priority_lock_thread -> priority;
     }
+    /*
+    그냥 한번만 상속을 한 경우 
+    */
     else
     {
      curr->priority = curr -> base_priority;
     } 
   }
+
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
