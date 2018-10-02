@@ -88,16 +88,18 @@ struct thread
     int base_priority;                  /* Base Prioirty when donating */
     /* Shared between thread.c and synch.c. */
 
-
     struct list_elem elem;              /* List element. */
-    int64_t wake_ticks;
+    
+    /*[project1]*/
+    int64_t wake_ticks;                 /* for wake up thread [project1-alarm clock]*/
 
     int donation;                       /* number of the donation on thread*/
     struct lock *lock_held;             /* Lock held on the thread */ 
-    struct list key;              /* List of lock */
+    struct list key;                    /* List of lock */
 
-    int fd;                             /*file discriptor */
-    struct list file_list;              /*list of open file*/
+    /*[project2]*/
+    int fd;                             /*file discriptor [project2-syscall] */
+    struct list file_list;              /*list of open file [project2=syscall] */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

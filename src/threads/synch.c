@@ -260,9 +260,9 @@ lock_release (struct lock *lock)
 
   list_remove(&lock->elem);
 
-  /* When the thread have donated priority, back to base priority or get other priority of lock held on thread*/
-
-
+  /* When the thread have donated priority, 
+  back to base priority or get other priority of lock held on thread
+  */
   if(same_lock_next_thread->priority == curr->priority)
   {
     if(curr->donation > 1 && !list_empty(&curr->key))
