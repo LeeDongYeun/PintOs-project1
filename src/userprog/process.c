@@ -515,7 +515,7 @@ argv_put_stack(char **parse,int count, void **esp)
     buff[i] = *esp;
     memcpy(*esp, token, arg_len);
     i++;
-  }
+  } 
   /*마지막 buff에 0을 집어 넣는다*/
   buff[count] = 0; 
 
@@ -544,4 +544,6 @@ argv_put_stack(char **parse,int count, void **esp)
   *esp = *esp - 4;
   memset(*esp,0,4);
 
+  free(buff);
+  free(token);
 }
