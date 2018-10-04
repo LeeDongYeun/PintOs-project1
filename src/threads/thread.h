@@ -120,6 +120,7 @@ struct child
 {
   int pid;
   int is_exited;
+  int status;
   struct list_elem elem;
 };
 
@@ -158,5 +159,5 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 static bool thread_priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED);
 void thread_preemption (int priority);
-
+struct thread * get_thread(int tid);
 #endif /* threads/thread.h */

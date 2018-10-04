@@ -87,7 +87,7 @@ get_thread(int tid)
 
   for(e=list_begin(&all_thread);e!=list_end(&all_thread);e=list_next(e))
   {
-    result = list_entry(e,struct thread,all_elem)
+    result = list_entry(e,struct thread,all_elem);
     if(result->tid == tid)
     {
       return result;
@@ -115,7 +115,7 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
-  list_init(&all_thread)
+  list_init(&all_thread);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();

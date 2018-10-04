@@ -1,4 +1,4 @@
-d#include "userprog/process.h"
+#include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -17,13 +17,17 @@ d#include "userprog/process.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
+#include "threads/synch.h"
+#include "userprog/syscall.h"
 
 #define DELIM_CHARS " ";
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-void argument_stack(char **parse,void **esp)
-int argument_count(char **parse)
+int argument_count(char **parse);
+void argv_put_stack(char **parse,int count, void **esp);
+struct lock lock_filesys;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -57,7 +61,7 @@ process_execute (const char *file_name)
   child_t -> pid = tid;
   child_t -> is_exited = -1;
 
-  list_push_back(&current->child_list,&child_t -> elem);
+  list_push_back(&curr->child_list,&child_t -> elem);
 
   return tid;
 }
@@ -67,10 +71,10 @@ process_execute (const char *file_name)
 static void
 start_process (void *f_name)
 {
-  char *buf_1 = malloc(128);
+  char *buf_1 = (char*)malloc(sizeof(char)*128);
   strlcpy(buf_1,f_name,128);
   char *buf_2;
-  char *file_name = strtok_s(buf_1," ",&buf_2);
+  char *file_name = strtok_r(buf_1," ",&buf_2);
   struct intr_frame if_;
   bool success;
 
@@ -119,8 +123,8 @@ process_wait (tid_t child_tid)
   /*현재 프로세스가 tid 값이 child_tid인 process를 child로 가졌는지 확인한다*/
   for(e=list_begin(&curr->child_list);e!=list_end(&curr->child_list);e=list_next(e))
   {
-    child_t = list_entry(e,struct child,child_elem);
-    if(child_t->tid == child_process->tid)
+    child_t = list_entry(e,struct child,elem);
+    if(child_t->pid == child_tid)
     {
       buf = true;
       break;
@@ -157,15 +161,15 @@ process_exit (void)
 {
   struct thread *curr = thread_current ();
   uint32_t *pd;
-
+  struct file_descriptor *file_des;
   struct list_elem *e;
 
   /*자신의 file을 모두 닫음*/
   while(!list_empty(&curr->file_list))
   {
-    struct file_descriptor = list_entry(list_pop_back(&curr->file_list),struct file_descriptor,elem);
+    file_des= list_entry( list_pop_back(&curr->file_list), struct file_descriptor, elem);
     lock_acquire(&lock_filesys);
-    file_close(file_descriptor -> file);
+    file_close(file_des -> file);
     lock_release(&lock_filesys);
   }
 
@@ -181,7 +185,7 @@ process_exit (void)
   for(e=list_begin(&parent->child_list);e!=list_end(&parent->child_list);e=list_next(e))
   {
     struct child* pchild_t = list_entry(e,struct child, elem);
-    if(pchild_t -> tid == curr->tid)
+    if(pchild_t -> pid == curr->tid)
     {
       pchild_t -> is_exited = 0;
     }
@@ -564,7 +568,7 @@ argument_count(char **parse)
   char *argv = malloc(128);
   strlcpy(argv,*parse,128);
   char *address;
-  char *token = strtok_s(argv," ",&address);
+  char *token = strtok_r(argv," ",&address);
   int i = 0;
   while(token)
   {
@@ -583,7 +587,7 @@ argv_put_stack(char **parse,int count, void **esp)
   strlcpy(argv,*parse,128);
   char *address;
   char **buff = (char**)malloc((count+1)*sizeof(char*));
-  char *token = strtok_s(argv," ",&address);
+  char *token = strtok_r(argv," ",&address);
   char *argv_ptr;
   int arg_len;
   int align;

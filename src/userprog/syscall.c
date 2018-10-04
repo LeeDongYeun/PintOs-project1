@@ -34,12 +34,6 @@ void close(int fd);
 struct file *get_file(int fd);
 
 struct lock lock_filesys;
-struct file_descriptor{
-	struct file *file;
-	int fd;
-	struct list_elem elem;
-
-};
 
 /*
 file descriptor로 syscall_init에서 초기화하고
@@ -170,16 +164,17 @@ halt(void){
 
 void
 exit(int status){
-	struct thread *t = thread_current ();
+	struct thread *curr = thread_current ();
 
-	printf("%s: exit(%d)\n", t->name, status);
+	printf("%s: exit(%d)\n", curr->name, status);
 
 	
   	struct thread *parent = get_thread(curr->parent_tid);
+  	struct list_elem *e;
   	for(e=list_begin(&parent->child_list);e!=list_end(&parent->child_list);e=list_next(e))
   	{
     struct child* pchild_t = list_entry(e,struct child, elem);
-    if(pchild_t -> tid == curr->tid)
+    if(pchild_t -> pid == curr->tid)
     {
       pchild_t -> status = status;
       break;
