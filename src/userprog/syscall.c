@@ -42,15 +42,15 @@ open함수에서 file을 오픈할 때마다 1씩 증가한다
 void
 syscall_init (void) 
 {
-	lock_init(&lock_filesys);
 	intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+	lock_init(&lock_filesys);
 }
 
 static void
 syscall_handler (struct intr_frame *f) 
 {
 	int *esp_val = check_pointer(f->esp);
-
+	
 	switch(*esp_val){
 	  	case SYS_HALT:
 	  		halt();
@@ -93,7 +93,7 @@ syscall_handler (struct intr_frame *f)
 	  		break;
 
 	  	case SYS_SEEK:
-	  		seek((int)check_pointer(esp_val+4), (unsigned)check_pointer(esp_val+12));
+	  		seek((int)check_pointer(esp_val+12), (unsigned)check_pointer(esp_val+16));
 	  		break;
 
 	  	case SYS_TELL:
@@ -105,12 +105,9 @@ syscall_handler (struct intr_frame *f)
 	  		break;
 
 	  	default :
-	  		printf("default");
-	  		break;
-
+	  		exit(-1);
 	}
-	printf ("system call!\n");
-	thread_exit ();
+	
 }
 
 void*
@@ -180,6 +177,7 @@ exit(int status){
       break;
     }
 	thread_exit();
+	}
 }
 
 pid_t

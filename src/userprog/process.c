@@ -20,6 +20,7 @@
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "userprog/syscall.h"
+//#include "userprog/syscall.c"
 
 #define DELIM_CHARS " ";
 
@@ -167,7 +168,7 @@ process_exit (void)
   /*자신의 file을 모두 닫음*/
   while(!list_empty(&curr->file_list))
   {
-    file_des= list_entry( list_pop_back(&curr->file_list), struct file_descriptor, elem);
+    file_des= list_entry(list_pop_back(&curr->file_list), struct file_descriptor, elem);
     lock_acquire(&lock_filesys);
     file_close(file_des -> file);
     lock_release(&lock_filesys);
@@ -534,7 +535,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
@@ -573,7 +574,7 @@ argument_count(char **parse)
   while(token)
   {
     i++;
-    token = strtok_s(NULL," ",&address);
+    token = strtok_r(NULL," ",&address);
   }
   free(argv);
   return i;
