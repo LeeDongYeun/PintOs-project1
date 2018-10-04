@@ -15,6 +15,7 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -100,15 +101,29 @@ struct thread
     /*[project2]*/
     int fd;                             /*file discriptor [project2-syscall] */
     struct list file_list;              /*list of open file [project2=syscall] */
+    int parent_tid;
+    int wait_tid;
+    struct list child_list;
+    struct list_elem all_elem;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+struct child
+{
+  int pid;
+  int is_exited;
+  struct list_elem elem;
+};
+
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

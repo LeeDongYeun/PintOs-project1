@@ -63,51 +63,51 @@ syscall_handler (struct intr_frame *f)
 	  		break;
 
 	  	case SYS_EXIT:
-	  		exit(*(int *)check_pointer(esp_val+4));
+	  		exit(*(int *)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_EXEC:
-	  		f -> eax = (uint32_t) exec(*(char *)check_pointer(esp_val+4));
+	  		f -> eax = (uint32_t) exec(*(char *)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_WAIT:
-	  		f -> eax = (uint32_t) wait((int)check_pointer(esp_val+4));
+	  		f -> eax = (uint32_t) wait((int)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_CREATE:
-	  		f -> eax = create((char *)check_pointer(esp_val+4), (unsigned)check_pointer(esp_val+8));
+	  		f -> eax = create((char *)check_pointer(esp_val+12), (unsigned)check_pointer(esp_val+16));
 	  		break;
 
 	  	case SYS_REMOVE:
-	  		f -> eax = remove((char *)check_pointer(esp_val+4));
+	  		f -> eax = remove((char *)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_OPEN:
-	  		f -> eax = open((char *)check_pointer(esp_val+4));
+	  		f -> eax = open((char *)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_FILESIZE:
-	  		f -> eax = filesize((int)check_pointer(esp_val+4));
+	  		f -> eax = filesize((int)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_READ:
-	  		f -> eax = read((int)check_pointer(esp_val+4), (void *)check_pointer(esp_val+8), (unsigned)check_pointer(esp_val+12));
+	  		f -> eax = read((int)check_pointer(esp_val+12), (void *)check_pointer(esp_val+16), (unsigned)check_pointer(esp_val+20));
 	  		break;
 
 	  	case SYS_WRITE:
-	  		f -> eax = write((int)check_pointer(esp_val+4), (void *)check_pointer(esp_val+8), (unsigned)check_pointer(esp_val+12));
+	  		f -> eax = write((int)check_pointer(esp_val+12), (void *)check_pointer(esp_val+16), (unsigned)check_pointer(esp_val+20));
 	  		break;
 
 	  	case SYS_SEEK:
-	  		seek((int)check_pointer(esp_val+4), (unsigned)check_pointer(esp_val+8));
+	  		seek((int)check_pointer(esp_val+4), (unsigned)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_TELL:
-	  		f -> eax = tell((int)check_pointer(esp_val+4));
+	  		f -> eax = tell((int)check_pointer(esp_val+12));
 	  		break;
 
 	  	case SYS_CLOSE:
-	  		close((int)check_pointer(esp_val+4));
+	  		close((int)check_pointer(esp_val+12));
 	  		break;
 
 	  	default :
@@ -142,7 +142,7 @@ check_pointer(void *ptr){
 
 /*
 현재 thread에 있는 file_list에서 fd가 같은 값을 찾은 후 file에 대한
-포인터를 리턴한다. 만약 없다면 -1을 리턴한다.
+포인터를 리턴한다. 만약 없다면 NULL을 리턴한다.
 */
 struct file*
 get_file(int fd){
@@ -173,6 +173,17 @@ exit(int status){
 	struct thread *t = thread_current ();
 
 	printf("%s: exit(%d)\n", t->name, status);
+
+	
+  	struct thread *parent = get_thread(curr->parent_tid);
+  	for(e=list_begin(&parent->child_list);e!=list_end(&parent->child_list);e=list_next(e))
+  	{
+    struct child* pchild_t = list_entry(e,struct child, elem);
+    if(pchild_t -> tid == curr->tid)
+    {
+      pchild_t -> status = status;
+      break;
+    }
 	thread_exit();
 }
 
@@ -181,11 +192,12 @@ exec(const char *cmd_line){
 	return process_execute(cmd_line);
 }
 
-/*
-int
-wait(pid_t pid){
 
-}*/
+int
+wait(pid_t pid)
+{
+	return process_wait(pid);
+}
 
 bool
 create(const char *file, unsigned initial_size){

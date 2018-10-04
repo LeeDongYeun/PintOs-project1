@@ -76,6 +76,25 @@ static tid_t allocate_tid (void);
 static bool thread_priority_compare1(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED);
 void thread_preemption (int priority);
 
+static struct list all_thread;
+
+
+struct thread *
+get_thread(int tid)
+{
+  struct thread * result;
+  struct list_elem * e;
+
+  for(e=list_begin(&all_thread);e!=list_end(&all_thread);e=list_next(e))
+  {
+    result = list_entry(e,struct thread,all_elem)
+    if(result->tid == tid)
+    {
+      return result;
+    }
+  }
+  return NULL;
+}
 
 
 
@@ -96,6 +115,7 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init(&all_thread)
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -468,6 +488,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+
+  /*project1*/
   t->priority = priority;
   t->base_priority = priority;
   t->donation = 0;
@@ -475,8 +497,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->lock_held = NULL;
   t->magic = THREAD_MAGIC;
 
+  /*project2*/
+  list_init(&t->child_list);
   list_init(&t->file_list);
   t->fd = 2; 
+  t->parent_tid = -1;
+  t->wait_tid = -1;
+  list_push_back(&all_thread,&t->all_elem);
 
 }
 

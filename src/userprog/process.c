@@ -1,4 +1,4 @@
-#include "userprog/process.h"
+d#include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -47,6 +47,18 @@ process_execute (const char *file_name)
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+    return -1;
+
+  struct thread *child_thread = get_thread(tid);
+  struct thread *curr = thread_current();
+  child_thread->parent_tid = curr -> tid;
+
+  struct child *child_t;
+  child_t -> pid = tid;
+  child_t -> is_exited = -1;
+
+  list_push_back(&current->child_list,&child_t -> elem);
+
   return tid;
 }
 
@@ -55,7 +67,8 @@ process_execute (const char *file_name)
 static void
 start_process (void *f_name)
 {
-  char *buf_1 = f_name;
+  char *buf_1 = malloc(128);
+  strlcpy(buf_1,f_name,128);
   char *buf_2;
   char *file_name = strtok_s(buf_1," ",&buf_2);
   struct intr_frame if_;
@@ -72,9 +85,9 @@ start_process (void *f_name)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+  free(buf_1);
   if (!success) 
     thread_exit ();
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -95,12 +108,47 @@ start_process (void *f_name)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  while(1){
-    
+  struct thread *child = get_thread(child_tid);
+  struct list_elem * e;
+  struct thread *curr = thread_current();
+  struct child *child_t;
+  bool buf = false;
+
+  /*현재 프로세스가 tid 값이 child_tid인 process를 child로 가졌는지 확인한다*/
+  for(e=list_begin(&curr->child_list);e!=list_end(&curr->child_list);e=list_next(e))
+  {
+    child_t = list_entry(e,struct child,child_elem);
+    if(child_t->tid == child_process->tid)
+    {
+      buf = true;
+      break;
+    }
   }
-  return -1;
+
+  /*자식 프로세스가 존재하는지 확인*/
+  if(!buf)
+  {
+    return -1;
+  }
+  /*자식 프로세스가 이미 종료되었다면 is_exited를 리턴*/
+  else if(child_t->is_exited != -1)
+  {
+    return child_t->is_exited;
+  }
+  /*자식 프로세스가 종료될 때까지 기다렸다가 리턴*/
+  else
+  {
+    curr -> wait_tid = child -> tid;
+    thread_block();
+
+    if (child_t->is_exited != 0)
+    {
+      return -1;
+    }
+    return 0;
+  }
 }
 
 /* Free the current process's resources. */
@@ -109,6 +157,35 @@ process_exit (void)
 {
   struct thread *curr = thread_current ();
   uint32_t *pd;
+
+  struct list_elem *e;
+
+  /*자신의 file을 모두 닫음*/
+  while(!list_empty(&curr->file_list))
+  {
+    struct file_descriptor = list_entry(list_pop_back(&curr->file_list),struct file_descriptor,elem);
+    lock_acquire(&lock_filesys);
+    file_close(file_descriptor -> file);
+    lock_release(&lock_filesys);
+  }
+
+  /*자신이 가지고 있는 child 구조체를 모두 free시킴*/
+  while(!list_empty(&curr->child_list))
+  {
+    struct child *child_t = list_entry(list_pop_back(&curr->child_list),struct child,elem);
+    free(child_t);
+  }
+
+  /*parent에 저장된 child 구조체의 is_exited 값을 변경*/
+  struct thread *parent = get_thread(curr->parent_tid);
+  for(e=list_begin(&parent->child_list);e!=list_end(&parent->child_list);e=list_next(e))
+  {
+    struct child* pchild_t = list_entry(e,struct child, elem);
+    if(pchild_t -> tid == curr->tid)
+    {
+      pchild_t -> is_exited = 0;
+    }
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -126,6 +203,10 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  if(parent->wait_tid == curr -> tid)
+  {
+    thread_unblock(parent);
+  }
 }
 
 /* Sets up the CPU for running user code in the current
@@ -480,7 +561,8 @@ install_page (void *upage, void *kpage, bool writable)
 int
 argument_count(char **parse)
 {
-  char *argv = *parse;
+  char *argv = malloc(128);
+  strlcpy(argv,*parse,128);
   char *address;
   char *token = strtok_s(argv," ",&address);
   int i = 0;
@@ -489,6 +571,7 @@ argument_count(char **parse)
     i++;
     token = strtok_s(NULL," ",&address);
   }
+  free(argv);
   return i;
 }
 
@@ -496,7 +579,8 @@ argument_count(char **parse)
 void 
 argv_put_stack(char **parse,int count, void **esp)
 {
-  char *argv = *parse;
+  char *argv = malloc(128);
+  strlcpy(argv,*parse,128);
   char *address;
   char **buff = (char**)malloc((count+1)*sizeof(char*));
   char *token = strtok_s(argv," ",&address);
@@ -545,5 +629,5 @@ argv_put_stack(char **parse,int count, void **esp)
   memset(*esp,0,4);
 
   free(buff);
-  free(token);
+  free(argv);
 }
