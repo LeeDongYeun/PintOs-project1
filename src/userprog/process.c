@@ -564,20 +564,25 @@ install_page (void *upage, void *kpage, bool writable)
 
 
 int
-argument_count(char **parse)
+argument_count(char *parse)
 {
   char *argv = malloc(128);
-  strlcpy(argv,*parse,128);
-  char *address;
-  char *token = strtok_r(argv," ",&address);
+  char *token = NULL;
+  char *address = NULL;
   int i = 0;
-  while(token)
-  {
+  
+  strlcpy(argv, parse, strlen(parse));
+  
+  token = strtok_s(argv, " ", &address);
+  
+  while(token != NULL){
     i++;
-    token = strtok_r(NULL," ",&address);
+    token = strtok_s(NULL, " ", &address);
+    
   }
   free(argv);
-  return i;
+  
+  return i-1;
 }
 
 
