@@ -85,8 +85,8 @@ start_process (void *f_name)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  argv_put_stack(f_name, argument_count(f_name),&if_.esp);
   success = load (file_name, &if_.eip, &if_.esp);
+  argv_put_stack(f_name, argument_count(f_name),&if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -582,49 +582,66 @@ argument_count(char *parse)
   }
   free(argv);
   
-  return i-1;
+  return i;
 }
 
 
+
 void 
-argv_put_stack(char **parse,int count, void **esp)
+argv_put_stack(char *parse,int count, void **esp)
 {
   char *argv = malloc(128);
-  strlcpy(argv,*parse,128);
-  char *address;
+  char *token = NULL;
+  char *address = NULL;
   char **buff = (char**)malloc((count+1)*sizeof(char*));
-  char *token = strtok_r(argv," ",&address);
+  char *buff2[count];
+  int *buff3 = (int*)malloc(count*sizeof(int));
   char *argv_ptr;
   int arg_len;
   int align;
-  int i;
+  int i = 0;
+  
+  strncpy(argv, parse, strlen(parse));
+  
+  token = strtok_s(argv, " ", &address);
+  
 
   /*argv를 쪼개서 stack에 집어 넣는다. 집어 넣을 때 
   stack의 주소값을 buff에 저장한다.*/
-  i = 0;
-  while(token)
+  while(token != NULL)
   {
     arg_len = strlen(token) + 1;
-    *esp = *esp - arg_len;
-    buff[i] = *esp;
-    memcpy(*esp, token, arg_len);
+    
+    char* newstrptr = (char*)malloc(sizeof(char)*arg_len);
+    strcpy(newstrptr,token);
+    buff2[i] = newstrptr;
+    buff3[i] = arg_len;
+    token = strtok_s(NULL," ",&address);
     i++;
-  } 
+  }
+  
+  for(i=count-1;i>=0;i--)
+  {
+    *esp = *esp - buff3[i];
+    buff[i] = *esp;
+    memcpy(*esp,buff2[i], buff3[i]);;
+  }
+
   /*마지막 buff에 0을 집어 넣는다*/
   buff[count] = 0; 
-
 
   /*8바이트로 맞추어준다*/
   align = ((int)*esp) & 3;
   *esp = *esp - align;
 
   /*스택에 argv들의 주소값을 집어 넣는다*/
+  
   for(i=count;i>=0;i--)
   {
     *esp = *esp - 4;
-    memcpy(*esp,&argv[i],4);
+    memcpy(*esp, &buff[i], 4);
   }
-
+  
   /*스택에 argv의 주소값을 가지고 있는 주소값을 넣는다*/
   argv_ptr = *esp;
   *esp = *esp - 4;
@@ -634,10 +651,15 @@ argv_put_stack(char **parse,int count, void **esp)
   *esp = *esp - 4;
   memcpy(*esp,&count,4);
 
+
   /*return address를 넣는다*/
   *esp = *esp - 4;
   memset(*esp,0,4);
 
   free(buff);
-  free(argv);
+  for(i=0;i<count;i++)
+  {
+    free(buff2[i]);
+    free(buff3[i]);
+  }
 }
